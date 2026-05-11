@@ -1,0 +1,64 @@
+{
+  "name": "ssh-chat-mcp",
+  "version": "0.1.0",
+  "description": "Zero-config SSH/SFTP MCP server. All connection data is passed at runtime from chat, never persisted to disk or MCP config.",
+  "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "AI Platforms",
+    "url": "https://aiplatforms.ru/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aiplatforms-ru/ssh-chat-mcp.git"
+  },
+  "homepage": "https://github.com/aiplatforms-ru/ssh-chat-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/aiplatforms-ru/ssh-chat-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ssh",
+    "sftp",
+    "zero-config",
+    "llm",
+    "ai",
+    "claude",
+    "lm-studio",
+    "kilo-code"
+  ],
+  "bin": {
+    "ssh-chat-mcp": "./build/index.js"
+  },
+  "main": "./build/index.js",
+  "types": "./build/index.d.ts",
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"import('node:fs').then(fs=>{const p='build/index.js';if(fs.existsSync(p)){const s=fs.readFileSync(p,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(p,'#!/usr/bin/env node\\n'+s);fs.chmodSync(p,0o755);}})\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --import tsx test/*.test.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"import('node:fs').then(fs=>fs.rmSync('build',{recursive:true,force:true}))\"",
+    "prepublishOnly": "npm run clean && npm run build && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ssh2": "^1.17.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ssh2": "^1.15.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

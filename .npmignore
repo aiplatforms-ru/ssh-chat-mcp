@@ -1,0 +1,15 @@
+src/
+test/
+.github/
+node_modules/
+tsconfig.json
+.gitignore
+.npmignore
+*.tsbuildinfo
+*.log
+.env
+.env.*
+*.pem
+*.key
+CONTRIBUTING.md
+SECURITY.md

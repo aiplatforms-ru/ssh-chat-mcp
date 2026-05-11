@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment / secrets (defensive — this project must NOT use env secrets)
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+id_ed25519
+known_hosts
+
+# Coverage
+coverage/
+.nyc_output/
+
+# tsbuild
+*.tsbuildinfo
+
+# Local agent / IDE state
+.claude/
+.cursor/
+
+# Local helper files
+.repo_patch_*.json
