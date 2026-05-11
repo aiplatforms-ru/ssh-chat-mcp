@@ -119,13 +119,13 @@ outputs and error messages pass through a redaction layer that removes:
 
 ### Integrations
 
-Replace `C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js` with **your own
+Replace `C:\\path\\to\\ssh-chat-mcp\\build\\index.js` with **your own
 absolute path** to `build/index.js` in all snippets below.
 
 #### Claude Code (CLI)
 
 ```bash
-claude mcp add ssh-chat --scope user -- cmd /c node C:\Users\reset\MCP\ssh-chat-mcp\build\index.js
+claude mcp add ssh-chat --scope user -- cmd /c node C:\path\to\ssh-chat-mcp\build\index.js
 ```
 
 macOS / Linux:
@@ -148,7 +148,7 @@ Edit:
   "mcpServers": {
     "ssh-chat": {
       "command": "node",
-      "args": ["C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
     }
   }
 }
@@ -163,7 +163,7 @@ Edit `~/.codex/config.toml` (Windows: `%USERPROFILE%\.codex\config.toml`):
 ```toml
 [mcp_servers.ssh-chat]
 command = 'node'
-args = ['C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js']
+args = ['C:\\path\\to\\ssh-chat-mcp\\build\\index.js']
 startup_timeout_sec = 10
 tool_timeout_sec = 120
 enabled = true
@@ -180,7 +180,7 @@ Edit `~/.config/kilo/kilo.jsonc`:
       "type": "local",
       "command": [
         "node",
-        "C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"
+        "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"
       ],
       "enabled": true,
       "timeout": 120000
@@ -198,7 +198,7 @@ Edit `%USERPROFILE%\.lmstudio\mcp.json` (Windows) or the equivalent on your OS:
   "mcpServers": {
     "ssh-chat": {
       "command": "cmd",
-      "args": ["/c", "node", "C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["/c", "node", "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
     }
   }
 }
@@ -226,7 +226,7 @@ macOS / Linux:
   "mcpServers": {
     "ssh-chat": {
       "command": "node",
-      "args": ["C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
     }
   }
 }
@@ -424,13 +424,13 @@ node build/index.js
 
 ### Интеграции
 
-Замени `C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js` на **свой
+Замени `C:\\path\\to\\ssh-chat-mcp\\build\\index.js` на **свой
 абсолютный путь** к `build/index.js` во всех сниппетах ниже.
 
 #### Claude Code (CLI)
 
 ```bash
-claude mcp add ssh-chat --scope user -- cmd /c node C:\Users\reset\MCP\ssh-chat-mcp\build\index.js
+claude mcp add ssh-chat --scope user -- cmd /c node C:\path\to\ssh-chat-mcp\build\index.js
 ```
 
 macOS / Linux:
@@ -453,7 +453,7 @@ claude mcp add ssh-chat --scope user -- node /absolute/path/to/ssh-chat-mcp/buil
   "mcpServers": {
     "ssh-chat": {
       "command": "node",
-      "args": ["C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
     }
   }
 }
@@ -468,7 +468,7 @@ claude mcp add ssh-chat --scope user -- node /absolute/path/to/ssh-chat-mcp/buil
 ```toml
 [mcp_servers.ssh-chat]
 command = 'node'
-args = ['C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js']
+args = ['C:\\path\\to\\ssh-chat-mcp\\build\\index.js']
 startup_timeout_sec = 10
 tool_timeout_sec = 120
 enabled = true
@@ -485,7 +485,7 @@ enabled = true
       "type": "local",
       "command": [
         "node",
-        "C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"
+        "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"
       ],
       "enabled": true,
       "timeout": 120000
@@ -503,7 +503,7 @@ enabled = true
   "mcpServers": {
     "ssh-chat": {
       "command": "cmd",
-      "args": ["/c", "node", "C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["/c", "node", "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
     }
   }
 }
@@ -531,7 +531,7 @@ macOS / Linux:
   "mcpServers": {
     "ssh-chat": {
       "command": "node",
-      "args": ["C:\\Users\\reset\\MCP\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
     }
   }
 }
