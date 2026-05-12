@@ -5,6 +5,23 @@ All notable changes to `ssh-chat-mcp` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-12
+
+### Added
+- Long-running command job tools: `exec_start`, `exec_as_start`, `exec_status`,
+  `exec_jobs`, `exec_cancel`, and `exec_remove`.
+- `diagnose` tool for distinguishing local MCP server health, missing
+  connections, SSH errors, and unresponsive SSH probes.
+- Rolling in-memory stdout/stderr buffers for command jobs with offset-based
+  incremental reads.
+
+### Changed
+- SSH client errors are now handled after connection setup so remote reboots or
+  network drops do not crash the MCP stdio transport.
+- A single `SIGINT` cancels active exec calls/jobs; a second quick `SIGINT`
+  exits the MCP server.
+- `disconnect` is idempotent when the connection is already gone.
+
 ## [0.1.0] - 2026-05-11
 
 ### Added

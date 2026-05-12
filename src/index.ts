@@ -24,7 +24,7 @@ import {
 import { redactError, redactValue } from "./security/redact.js";
 
 const SERVER_NAME = "ssh-chat-mcp";
-const SERVER_VERSION = "0.1.0";
+const SERVER_VERSION = "0.2.0";
 
 const manager = new ConnectionManager();
 const execJobs = new ExecJobManager();

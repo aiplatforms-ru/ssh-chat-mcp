@@ -1,6 +1,6 @@
 {
   "name": "ssh-chat-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zero-config SSH/SFTP MCP server. All connection data is passed at runtime from chat, never persisted to disk or MCP config.",
   "type": "module",
   "license": "MIT",
