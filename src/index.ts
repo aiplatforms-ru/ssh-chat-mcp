@@ -13,7 +13,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 import { ConnectionManager } from "./ssh/connectionManager.js";
-import { execCommand, execAsUser } from "./ssh/exec.js";
+import { abortActiveExecs, execCommand, execAsUser, ExecJobManager } from "./ssh/exec.js";
 import {
   uploadFile,
   uploadDirectory,
@@ -27,6 +27,8 @@ const SERVER_NAME = "ssh-chat-mcp";
 const SERVER_VERSION = "0.1.0";
 
 const manager = new ConnectionManager();
+const execJobs = new ExecJobManager();
+let lastSigintAt = 0;
 
 /** Wrap a tool implementation so any thrown error is redacted and surfaced as isError. */
 function toolHandler<TArgs>(
@@ -50,6 +52,62 @@ function toolHandler<TArgs>(
       };
     }
   };
+}
+
+async function diagnoseConnection(connectionName?: string): Promise<Record<string, unknown>> {
+  const base = {
+    mcpServer: "alive",
+    serverTime: new Date().toISOString(),
+  };
+  if (!connectionName) {
+    return {
+      ...base,
+      category: "mcp_server_alive",
+      connections: manager.list(),
+      jobs: execJobs.list(),
+    };
+  }
+
+  const publicInfo = manager.list().find((c) => c.connectionName === connectionName);
+  if (!publicInfo) {
+    return {
+      ...base,
+      category: "connection_missing",
+      connectionName,
+      explanation:
+        "The MCP server is alive, but this SSH connection is not registered locally.",
+    };
+  }
+
+  if (publicInfo.status !== "connected") {
+    return {
+      ...base,
+      category: "connection_not_connected",
+      connection: publicInfo,
+    };
+  }
+
+  try {
+    const conn = manager.get(connectionName);
+    const probe = await execCommand({
+      conn,
+      command: "true",
+      timeoutMs: 5_000,
+    });
+    return {
+      ...base,
+      category: probe.timedOut ? "ssh_unresponsive" : "ok",
+      connection: publicInfo,
+      probe,
+    };
+  } catch (err) {
+    return {
+      ...base,
+      category: "ssh_error",
+      connection: publicInfo,
+      error: redactError(err),
+    };
+  }
 }
 
 async function main(): Promise<void> {
@@ -142,8 +200,8 @@ async function main(): Promise<void> {
       },
     },
     toolHandler(async (args: { connectionName: string }) => {
-      await manager.disconnect(args.connectionName);
-      return { connectionName: args.connectionName, disconnected: true };
+      const existed = await manager.disconnect(args.connectionName);
+      return { connectionName: args.connectionName, disconnected: existed, existed };
     }),
   );
 
@@ -161,6 +219,30 @@ async function main(): Promise<void> {
     },
     toolHandler(async () => {
       return { connections: manager.list() };
+    }),
+  );
+
+  // -------------------------------------------------------------------------
+  // diagnose
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "diagnose",
+    {
+      title: "Diagnose MCP/SSH state",
+      description:
+        "Return explicit local diagnostics: MCP server alive, registered connections, " +
+        "known jobs, or a short SSH probe for a named connection. This helps distinguish " +
+        "server unavailable, SSH unavailable, dead connection, and MCP transport issues.",
+      inputSchema: {
+        connectionName: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Optional connection to probe with a short `true` command."),
+      },
+    },
+    toolHandler(async (args: { connectionName?: string }) => {
+      return await diagnoseConnection(args.connectionName);
     }),
   );
 
@@ -212,6 +294,62 @@ async function main(): Promise<void> {
   );
 
   // -------------------------------------------------------------------------
+  // exec_start
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "exec_start",
+    {
+      title: "Start a long-running shell command",
+      description:
+        "Start a command over SSH and return immediately with a jobId. Use " +
+        "`exec_status` to read stdout/stderr later and `exec_cancel` to stop it. " +
+        "This avoids MCP client tool-call timeouts for git clone, pip install, " +
+        "apt install, dkms builds, reboot waits, and similar long operations.",
+      inputSchema: {
+        connectionName: z.string().min(1),
+        command: z.string().min(1).describe("Shell command to execute on the remote host."),
+        cwd: z
+          .string()
+          .optional()
+          .describe("Optional remote working directory. Wrapped as `cd <cwd> && <command>`."),
+        timeoutMs: z
+          .number()
+          .int()
+          .min(0)
+          .max(24 * 60 * 60_000)
+          .optional()
+          .describe("Optional wall-clock timeout in ms. 0 or omitted means no MCP-side timeout."),
+        stdin: z.string().optional().describe("Optional stdin to feed to the command."),
+        maxBufferBytes: z
+          .number()
+          .int()
+          .min(4096)
+          .max(50_000_000)
+          .optional()
+          .describe("Rolling stdout/stderr buffer limit per stream (default 1000000)."),
+      },
+    },
+    toolHandler(async (args: {
+      connectionName: string;
+      command: string;
+      cwd?: string;
+      timeoutMs?: number;
+      stdin?: string;
+      maxBufferBytes?: number;
+    }) => {
+      const conn = manager.get(args.connectionName);
+      return await execJobs.start({
+        conn,
+        command: args.command,
+        cwd: args.cwd,
+        timeoutMs: args.timeoutMs,
+        stdin: args.stdin,
+        maxBufferBytes: args.maxBufferBytes,
+      });
+    }),
+  );
+
+  // -------------------------------------------------------------------------
   // exec_as
   // -------------------------------------------------------------------------
   server.registerTool(
@@ -258,6 +396,148 @@ async function main(): Promise<void> {
         sudoPassword: args.sudoPassword,
         timeoutMs: args.timeoutMs,
       });
+    }),
+  );
+
+  // -------------------------------------------------------------------------
+  // exec_as_start
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "exec_as_start",
+    {
+      title: "Start a long-running command as another Linux user",
+      description:
+        "Start a sudo -iu command and return immediately with a jobId. Read it with " +
+        "`exec_status`; stop it with `exec_cancel`. The optional sudoPassword is piped " +
+        "through stdin and never logged.",
+      inputSchema: {
+        connectionName: z.string().min(1),
+        runAs: z
+          .string()
+          .min(1)
+          .max(32)
+          .describe("Target Linux username, e.g. 'appuser'. Strictly validated."),
+        command: z.string().min(1).describe("Command to run as the target user."),
+        cwd: z.string().optional().describe("Optional remote working directory."),
+        sudoPassword: z
+          .string()
+          .optional()
+          .describe("Optional sudo password. Piped via stdin; never logged or returned."),
+        timeoutMs: z
+          .number()
+          .int()
+          .min(0)
+          .max(24 * 60 * 60_000)
+          .optional(),
+        maxBufferBytes: z.number().int().min(4096).max(50_000_000).optional(),
+      },
+    },
+    toolHandler(async (args: {
+      connectionName: string;
+      runAs: string;
+      command: string;
+      cwd?: string;
+      sudoPassword?: string;
+      timeoutMs?: number;
+      maxBufferBytes?: number;
+    }) => {
+      const conn = manager.get(args.connectionName);
+      return await execJobs.startAs({
+        conn,
+        runAs: args.runAs,
+        command: args.command,
+        cwd: args.cwd,
+        sudoPassword: args.sudoPassword,
+        timeoutMs: args.timeoutMs,
+        maxBufferBytes: args.maxBufferBytes,
+      });
+    }),
+  );
+
+  // -------------------------------------------------------------------------
+  // exec_status
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "exec_status",
+    {
+      title: "Read a long-running command job",
+      description:
+        "Return job status plus stdout/stderr slices. Pass stdoutOffset/stderrOffset " +
+        "from the previous response's nextOffset fields to read incrementally.",
+      inputSchema: {
+        jobId: z.string().min(1),
+        stdoutOffset: z.number().int().min(0).optional(),
+        stderrOffset: z.number().int().min(0).optional(),
+        maxBytes: z.number().int().min(1).max(5_000_000).optional(),
+      },
+    },
+    toolHandler(async (args: {
+      jobId: string;
+      stdoutOffset?: number;
+      stderrOffset?: number;
+      maxBytes?: number;
+    }) => {
+      return execJobs.status(args);
+    }),
+  );
+
+  // -------------------------------------------------------------------------
+  // exec_jobs
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "exec_jobs",
+    {
+      title: "List long-running command jobs",
+      description:
+        "List known exec jobs and their statuses. Output is metadata only, without logs.",
+      inputSchema: {
+        connectionName: z.string().min(1).optional(),
+      },
+    },
+    toolHandler(async (args: { connectionName?: string }) => {
+      return { jobs: execJobs.list(args.connectionName) };
+    }),
+  );
+
+  // -------------------------------------------------------------------------
+  // exec_cancel
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "exec_cancel",
+    {
+      title: "Cancel a long-running command job",
+      description:
+        "Best-effort cancellation for a job. If the remote job PID is known, the MCP " +
+        "server sends the signal to the remote process group, then closes the SSH channel.",
+      inputSchema: {
+        jobId: z.string().min(1),
+        signal: z
+          .string()
+          .regex(/^[A-Z0-9]+$/)
+          .optional()
+          .describe("Signal name without SIG prefix, e.g. TERM or KILL (default TERM)."),
+      },
+    },
+    toolHandler(async (args: { jobId: string; signal?: string }) => {
+      return await execJobs.cancel(args.jobId, args.signal);
+    }),
+  );
+
+  // -------------------------------------------------------------------------
+  // exec_remove
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "exec_remove",
+    {
+      title: "Remove a completed command job",
+      description:
+        "Forget a completed/cancelled/failed job and drop its buffered stdout/stderr.",
+      inputSchema: {
+        jobId: z.string().min(1),
+      },
+    },
+    toolHandler(async (args: { jobId: string }) => {
+      return execJobs.remove(args.jobId);
     }),
   );
 
@@ -458,6 +738,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string) => {
     try {
+      await execJobs.cancelAll("TERM");
       await manager.disconnectAll();
     } catch (err) {
       console.error(`[${SERVER_NAME}] cleanup error on ${signal}:`, redactError(err));
@@ -465,7 +746,21 @@ async function main(): Promise<void> {
       process.exit(0);
     }
   };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGINT", () => {
+    const now = Date.now();
+    if (now - lastSigintAt < 1500) {
+      void shutdown("SIGINT");
+      return;
+    }
+    lastSigintAt = now;
+    const execCount = abortActiveExecs("TERM");
+    void execJobs.cancelAll("TERM").then((jobCount) => {
+      console.error(
+        `[${SERVER_NAME}] SIGINT: cancelled ${execCount} exec call(s) and ${jobCount} job(s). ` +
+          "Send SIGINT again within 1.5s to stop the MCP server.",
+      );
+    });
+  });
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 

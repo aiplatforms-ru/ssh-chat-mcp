@@ -17,6 +17,10 @@ export interface ConnectionDescriptor {
   connectedAt: string;
   /** Current lifecycle status. */
   status: "connecting" | "connected" | "closing" | "closed" | "error";
+  /** ISO timestamp when the connection stopped being usable. */
+  closedAt?: string;
+  /** Last non-sensitive error seen on this SSH client. */
+  lastError?: string;
   /** Live ssh2 client. Owned by ConnectionManager. */
   client: SshClient;
   /**
@@ -38,6 +42,8 @@ export interface ConnectionPublicInfo {
   username: string;
   connectedAt: string;
   status: ConnectionDescriptor["status"];
+  closedAt?: string;
+  lastError?: string;
 }
 
 export interface ExecResult {
@@ -47,4 +53,30 @@ export interface ExecResult {
   signal: string | null;
   /** True if the command was killed because timeoutMs elapsed. */
   timedOut: boolean;
+}
+
+export type ExecJobStatus =
+  | "starting"
+  | "running"
+  | "exited"
+  | "error"
+  | "cancelled"
+  | "timed_out"
+  | "connection_closed";
+
+export interface ExecJobPublicInfo {
+  jobId: string;
+  connectionName: string;
+  command: string;
+  cwd?: string;
+  startedAt: string;
+  finishedAt?: string;
+  status: ExecJobStatus;
+  exitCode: number | null;
+  signal: string | null;
+  timedOut: boolean;
+  remotePid?: number;
+  stdoutBytes: number;
+  stderrBytes: number;
+  error?: string;
 }

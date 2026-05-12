@@ -74,7 +74,9 @@ Verify the server starts silently — it must not print anything to stdout
 node build/index.js
 ```
 
-Press `Ctrl+C` to stop. No output is expected.
+Press `Ctrl+C` twice quickly to stop. A single `Ctrl+C` only cancels in-flight
+commands/jobs so MCP clients can interrupt a tool call without killing the whole
+stdio transport. No output is expected during normal operation.
 
 ### Quick start
 
@@ -105,13 +107,37 @@ outputs and error messages pass through a redaction layer that removes:
 | `connect` | Open an SSH session. Requires `connectionName`, `host`, `username`, plus `password` or `privateKey` (PEM). Optional `port` (default 22), `passphrase`, `readyTimeoutMs`, `keepaliveIntervalMs`. Credentials live only in RAM. |
 | `disconnect` | Close the SSH+SFTP session and wipe credentials from memory. |
 | `list_connections` | Return non-sensitive metadata for all active connections. |
+| `diagnose` | Local MCP/SSH diagnostics. With no args it proves the MCP server is alive and lists connections/jobs. With `connectionName`, it runs a short SSH probe and returns `ok`, `ssh_unresponsive`, `ssh_error`, `connection_missing`, etc. |
 | `exec` | Run a shell command. With `cwd`, wraps as `cd <quoted cwd> && <command>`. Returns `stdout, stderr, exitCode, signal, timedOut`. |
+| `exec_start` | Start a long-running command and return immediately with `jobId`. Use for `git clone`, `pip install`, `apt install`, builds, and reboot waits that may outlive the MCP client's tool timeout. |
 | `exec_as` | Run as another Linux user via `sudo -S -p '' -iu <runAs> -- bash -lc <command>`. `runAs` is strictly validated (`^[a-z_][a-z0-9_-]{0,31}$`). `sudoPassword` is piped via stdin and never logged. |
+| `exec_as_start` | Long-running version of `exec_as`; returns `jobId` immediately and stores rolling stdout/stderr buffers in memory. |
+| `exec_status` | Read a command job status plus stdout/stderr slices. Pass returned `nextOffset` values back as `stdoutOffset`/`stderrOffset` for incremental log reads. |
+| `exec_jobs` | List known command jobs without logs. |
+| `exec_cancel` | Best-effort cancellation for a job. If the remote PID is known, sends the signal to the remote process group and closes the SSH channel. |
+| `exec_remove` | Remove a completed/cancelled/failed job and drop its buffered logs. |
 | `upload_file` | SFTP upload one file. Optional `mode`, `mkdirParents`. |
 | `upload_directory` | Recursive SFTP upload. Caller-supplied `exclude` list. Symlinks not followed by default. |
 | `download_file` | SFTP download to local disk. |
 | `read_remote_file` | Read remote file as UTF-8 text, up to `maxBytes`. Content is redacted. |
 | `write_remote_file` | Write text to a remote file via SFTP. Useful for staging systemd/nginx configs into `/tmp` and then `sudo mv`-ing them in place. |
+
+---
+
+### Long-running commands
+
+For commands that can exceed your MCP client's tool timeout, prefer:
+
+1. `exec_start` or `exec_as_start` with the long command.
+2. `exec_status` every so often, using `stdout.nextOffset` and
+   `stderr.nextOffset` from the previous response.
+3. `exec_cancel` if the job must be stopped.
+4. `exec_remove` after completion if you want to drop the in-memory log buffers.
+
+This keeps the MCP transport responsive: the first call only opens the SSH
+channel and returns a `jobId`; stdout/stderr are held in rolling in-memory
+buffers and read later by job id. If a job times out or is cancelled, the server
+tries to signal the remote process group before closing the SSH channel.
 
 ---
 
@@ -379,7 +405,9 @@ npm run build
 node build/index.js
 ```
 
-`Ctrl+C` для остановки. Вывода быть не должно.
+Для остановки нажми `Ctrl+C` два раза быстро. Один `Ctrl+C` только отменяет
+активные команды/jobs, чтобы MCP-клиенты могли прервать tool call без убийства
+всего stdio-транспорта. В штатной работе вывода быть не должно.
 
 ### Быстрый старт
 
@@ -410,13 +438,37 @@ node build/index.js
 | `connect` | Открывает SSH. Обязательно: `connectionName`, `host`, `username` + `password` или `privateKey` (PEM). Опционально: `port` (по умолчанию 22), `passphrase`, `readyTimeoutMs`, `keepaliveIntervalMs`. Креды только в RAM. |
 | `disconnect` | Закрывает SSH+SFTP, стирает креды из памяти. |
 | `list_connections` | Возвращает нечувствительные метаданные активных соединений. |
+| `diagnose` | Локальная диагностика MCP/SSH. Без аргументов доказывает, что MCP-сервер жив, и показывает соединения/jobs. С `connectionName` делает короткий SSH probe и возвращает `ok`, `ssh_unresponsive`, `ssh_error`, `connection_missing` и т.п. |
 | `exec` | Выполняет shell-команду. Если задан `cwd`, оборачивает в `cd <quoted cwd> && <command>`. Возвращает `stdout, stderr, exitCode, signal, timedOut`. |
+| `exec_start` | Запускает долгую команду и сразу возвращает `jobId`. Для `git clone`, `pip install`, `apt install`, сборок, ожидания reboot и всего, что может пережить timeout MCP-клиента. |
 | `exec_as` | Запуск как другой Linux-пользователь через `sudo -S -p '' -iu <runAs> -- bash -lc <command>`. `runAs` строго валидируется (`^[a-z_][a-z0-9_-]{0,31}$`). `sudoPassword` идёт через stdin и никогда не логируется. |
+| `exec_as_start` | Долгая версия `exec_as`: сразу возвращает `jobId` и хранит rolling stdout/stderr buffers в памяти. |
+| `exec_status` | Читает статус job и срезы stdout/stderr. Передавай возвращённые `nextOffset` как `stdoutOffset`/`stderrOffset` для инкрементального чтения логов. |
+| `exec_jobs` | Показывает известные jobs без логов. |
+| `exec_cancel` | Best-effort отмена job. Если известен remote PID, сигнал отправляется remote process group, затем закрывается SSH channel. |
+| `exec_remove` | Удаляет завершённую/отменённую/упавшую job и очищает буферы логов. |
 | `upload_file` | SFTP-загрузка одного файла. Опционально `mode`, `mkdirParents`. |
 | `upload_directory` | Рекурсивная SFTP-загрузка. `exclude` задаёт вызывающий. Симлинки по умолчанию не следуются. |
 | `download_file` | SFTP-скачивание на локальный диск. |
 | `read_remote_file` | Чтение удалённого файла как UTF-8, до `maxBytes`. Контент редактируется. |
 | `write_remote_file` | Запись текста на удалённый файл через SFTP. Полезно для staging systemd/nginx-конфигов в `/tmp` с последующим `sudo mv`. |
+
+---
+
+### Долгие команды
+
+Для команд, которые могут выйти за timeout MCP-клиента, используй:
+
+1. `exec_start` или `exec_as_start` с долгой командой.
+2. `exec_status` время от времени, передавая `stdout.nextOffset` и
+   `stderr.nextOffset` из прошлого ответа.
+3. `exec_cancel`, если job нужно остановить.
+4. `exec_remove` после завершения, если нужно очистить in-memory буферы логов.
+
+Так MCP transport остаётся отзывчивым: первый вызов только открывает SSH channel
+и возвращает `jobId`; stdout/stderr хранятся в rolling in-memory буферах и
+читаются потом по job id. Если job получает timeout или отмену, сервер пытается
+послать сигнал remote process group до закрытия SSH channel.
 
 ---
 

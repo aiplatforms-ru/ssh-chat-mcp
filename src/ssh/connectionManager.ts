@@ -7,7 +7,7 @@
 
 import { Client as SshClient, type ConnectConfig } from "ssh2";
 import type { ConnectionDescriptor, ConnectionPublicInfo } from "../types.js";
-import { clearSecrets } from "../security/redact.js";
+import { clearSecrets, redactError } from "../security/redact.js";
 
 export interface ConnectOptions {
   connectionName: string;
@@ -23,6 +23,19 @@ export interface ConnectOptions {
 
 export class ConnectionManager {
   private readonly conns = new Map<string, ConnectionDescriptor>();
+
+  private forgetConnection(connectionName: string, client: SshClient): void {
+    const d = this.conns.get(connectionName);
+    if (!d || d.client !== client) return;
+    d.status = "closed";
+    d.closedAt = new Date().toISOString();
+    clearSecrets(d.secrets as unknown as Record<string, unknown>, [
+      "password",
+      "privateKey",
+      "passphrase",
+    ]);
+    this.conns.delete(connectionName);
+  }
 
   /**
    * Open a new SSH connection and register it under `connectionName`.
@@ -71,6 +84,20 @@ export class ConnectionManager {
     };
     this.conns.set(connectionName, descriptor);
 
+    client.on("error", (err) => {
+      const d = this.conns.get(connectionName);
+      if (d && d.client === client) {
+        d.status = "error";
+        d.lastError = redactError(err);
+        d.closedAt = new Date().toISOString();
+      }
+      console.error(`[ssh-chat-mcp] ssh client error (${connectionName}):`, redactError(err));
+    });
+
+    client.once("close", () => {
+      this.forgetConnection(connectionName, client);
+    });
+
     const config: ConnectConfig = {
       host,
       port,
@@ -105,6 +132,8 @@ export class ConnectionManager {
       });
     } catch (err) {
       descriptor.status = "error";
+      descriptor.lastError = redactError(err);
+      descriptor.closedAt = new Date().toISOString();
       try {
         client.end();
       } catch {
@@ -122,20 +151,6 @@ export class ConnectionManager {
     descriptor.status = "connected";
     descriptor.connectedAt = new Date().toISOString();
 
-    // Auto-cleanup on remote-initiated close.
-    client.once("close", () => {
-      const d = this.conns.get(connectionName);
-      if (d && d.client === client) {
-        d.status = "closed";
-        clearSecrets(d.secrets as unknown as Record<string, unknown>, [
-          "password",
-          "privateKey",
-          "passphrase",
-        ]);
-        this.conns.delete(connectionName);
-      }
-    });
-
     return this.publicInfo(descriptor);
   }
 
@@ -152,10 +167,10 @@ export class ConnectionManager {
   }
 
   /** Close a connection and remove all credentials from memory. */
-  async disconnect(connectionName: string): Promise<void> {
+  async disconnect(connectionName: string): Promise<boolean> {
     const d = this.conns.get(connectionName);
     if (!d) {
-      throw new Error(`no such connection: ${connectionName}`);
+      return false;
     }
     d.status = "closing";
     try {
@@ -183,8 +198,10 @@ export class ConnectionManager {
         "passphrase",
       ]);
       d.status = "closed";
+      d.closedAt = new Date().toISOString();
       this.conns.delete(connectionName);
     }
+    return true;
   }
 
   /** Disconnect every active connection. Used during shutdown. */
@@ -206,6 +223,8 @@ export class ConnectionManager {
       username: d.username,
       connectedAt: d.connectedAt,
       status: d.status,
+      closedAt: d.closedAt,
+      lastError: d.lastError,
     };
   }
 }
