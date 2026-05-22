@@ -41,3 +41,4 @@ coverage/
 
 # Local helper files
 .repo_patch_*.json
+backup/

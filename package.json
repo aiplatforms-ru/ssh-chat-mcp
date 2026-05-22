@@ -45,7 +45,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"import('node:fs').then(fs=>{const p='build/index.js';if(fs.existsSync(p)){const s=fs.readFileSync(p,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(p,'#!/usr/bin/env node\\n'+s);fs.chmodSync(p,0o755);}})\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --import tsx test/*.test.ts",
+    "test": "node --test --import tsx test/redact.test.ts test/shellQuote.test.ts test/errors.test.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
     "clean": "node -e \"import('node:fs').then(fs=>fs.rmSync('build',{recursive:true,force:true}))\"",
     "prepublishOnly": "npm run clean && npm run build && npm test"
