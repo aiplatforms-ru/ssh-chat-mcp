@@ -8,6 +8,9 @@
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/ssh-chat-mcp"><img alt="npm version" src="https://img.shields.io/npm/v/ssh-chat-mcp?color=cb3837&logo=npm"></a>
+  <a href="https://www.npmjs.com/package/ssh-chat-mcp"><img alt="npm downloads" src="https://img.shields.io/npm/dm/ssh-chat-mcp?color=cb3837&logo=npm"></a>
+  <a href="https://github.com/aiplatforms-ru/ssh-chat-mcp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/aiplatforms-ru/ssh-chat-mcp/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://aiplatforms.ru/"><img alt="By AI Platforms" src="https://img.shields.io/badge/by-AI%20Platforms-0a66c2"></a>
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-green"></a>
   <a href="https://nodejs.org/"><img alt="Node 20+" src="https://img.shields.io/badge/node-%E2%89%A520-brightgreen"></a>
@@ -57,26 +60,39 @@ with the connection.
 
 ### Install
 
+Requires **Node.js 20 or newer** (22 recommended).
+
+**Option A — npx (recommended, zero install).** Point your MCP client at
+`npx -y ssh-chat-mcp`. The first run downloads the package; later runs are
+instant from cache. Nothing to clone or build. See [Integrations](#integrations).
+
+```bash
+# verify it runs (starts silently; Ctrl+C to stop)
+npx -y ssh-chat-mcp
+```
+
+**Option B — global install.**
+
+```bash
+npm install -g ssh-chat-mcp
+ssh-chat-mcp        # starts the stdio server
+```
+
+**Option C — from source (for development).**
+
 ```bash
 git clone https://github.com/aiplatforms-ru/ssh-chat-mcp.git
 cd ssh-chat-mcp
 npm install
 npm run build
-```
-
-This produces `build/index.js`, an ESM Node script with a `#!/usr/bin/env node`
-shebang. Requires **Node.js 20 or newer** (22 recommended).
-
-Verify the server starts silently — it must not print anything to stdout
-(stdout is reserved for MCP JSON-RPC traffic):
-
-```bash
 node build/index.js
 ```
 
-Press `Ctrl+C` twice quickly to stop. A single `Ctrl+C` only cancels in-flight
-commands/jobs so MCP clients can interrupt a tool call without killing the whole
-stdio transport. No output is expected during normal operation.
+In all cases the server starts silently and must not print anything to stdout
+(stdout is reserved for MCP JSON-RPC traffic). Press `Ctrl+C` twice quickly to
+stop. A single `Ctrl+C` only cancels in-flight commands/jobs so MCP clients can
+interrupt a tool call without killing the whole stdio transport. No output is
+expected during normal operation.
 
 ### Quick start
 
@@ -145,19 +161,17 @@ tries to signal the remote process group before closing the SSH channel.
 
 ### Integrations
 
-Replace `C:\\path\\to\\ssh-chat-mcp\\build\\index.js` with **your own
-absolute path** to `build/index.js` in all snippets below.
+All snippets below use the **npx** form (`npx -y ssh-chat-mcp`) — no install,
+no paths. If you installed from source instead, replace
+`{ "command": "npx", "args": ["-y", "ssh-chat-mcp"] }` with
+`{ "command": "node", "args": ["/abs/path/to/ssh-chat-mcp/build/index.js"] }`.
+On Windows, npx-based clients sometimes need the launcher wrapped as
+`"command": "cmd", "args": ["/c", "npx", "-y", "ssh-chat-mcp"]`.
 
 #### Claude Code (CLI)
 
 ```bash
-claude mcp add ssh-chat --scope user -- cmd /c node C:\path\to\ssh-chat-mcp\build\index.js
-```
-
-macOS / Linux:
-
-```bash
-claude mcp add ssh-chat --scope user -- node /absolute/path/to/ssh-chat-mcp/build/index.js
+claude mcp add ssh-chat --scope user -- npx -y ssh-chat-mcp
 ```
 
 Verify with `/mcp` inside Claude Code.
@@ -173,8 +187,8 @@ Edit:
 {
   "mcpServers": {
     "ssh-chat": {
-      "command": "node",
-      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
+      "command": "npx",
+      "args": ["-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -188,9 +202,9 @@ Edit `~/.codex/config.toml` (Windows: `%USERPROFILE%\.codex\config.toml`):
 
 ```toml
 [mcp_servers.ssh-chat]
-command = 'node'
-args = ['C:\\path\\to\\ssh-chat-mcp\\build\\index.js']
-startup_timeout_sec = 10
+command = 'npx'
+args = ['-y', 'ssh-chat-mcp']
+startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 ```
@@ -204,10 +218,7 @@ Edit `~/.config/kilo/kilo.jsonc`:
   "mcp": {
     "ssh-chat": {
       "type": "local",
-      "command": [
-        "node",
-        "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"
-      ],
+      "command": ["npx", "-y", "ssh-chat-mcp"],
       "enabled": true,
       "timeout": 120000
     }
@@ -224,7 +235,7 @@ Edit `%USERPROFILE%\.lmstudio\mcp.json` (Windows) or the equivalent on your OS:
   "mcpServers": {
     "ssh-chat": {
       "command": "cmd",
-      "args": ["/c", "node", "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["/c", "npx", "-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -236,8 +247,8 @@ macOS / Linux:
 {
   "mcpServers": {
     "ssh-chat": {
-      "command": "node",
-      "args": ["/absolute/path/to/ssh-chat-mcp/build/index.js"]
+      "command": "npx",
+      "args": ["-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -251,8 +262,8 @@ macOS / Linux:
 {
   "mcpServers": {
     "ssh-chat": {
-      "command": "node",
-      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
+      "command": "npx",
+      "args": ["-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -265,8 +276,8 @@ Most MCP-capable extensions follow the same shape:
 ```json
 {
   "name": "ssh-chat",
-  "command": "node",
-  "args": ["/absolute/path/to/ssh-chat-mcp/build/index.js"],
+  "command": "npx",
+  "args": ["-y", "ssh-chat-mcp"],
   "transport": "stdio"
 }
 ```
@@ -277,8 +288,8 @@ Consult your client's docs for where this JSON lives.
 
 If your client supports stdio servers at all, point it at:
 
-- **command:** `node`
-- **args:** `["/abs/path/to/ssh-chat-mcp/build/index.js"]`
+- **command:** `npx`
+- **args:** `["-y", "ssh-chat-mcp"]`
 - **env / cwd:** not needed
 - **transport:** stdio
 
@@ -388,26 +399,39 @@ test/
 
 ### Установка
 
+Требуется **Node.js 20+** (рекомендуется 22).
+
+**Вариант A — npx (рекомендуется, без установки).** Укажи MCP-клиенту
+`npx -y ssh-chat-mcp`. Первый запуск скачает пакет, дальше — мгновенно из кэша.
+Ничего клонировать и собирать не нужно. См. [Интеграции](#интеграции-ru).
+
+```bash
+# проверка запуска (стартует молча; Ctrl+C для остановки)
+npx -y ssh-chat-mcp
+```
+
+**Вариант B — глобальная установка.**
+
+```bash
+npm install -g ssh-chat-mcp
+ssh-chat-mcp        # запускает stdio-сервер
+```
+
+**Вариант C — из исходников (для разработки).**
+
 ```bash
 git clone https://github.com/aiplatforms-ru/ssh-chat-mcp.git
 cd ssh-chat-mcp
 npm install
 npm run build
-```
-
-На выходе — `build/index.js`, ESM-скрипт с shebang `#!/usr/bin/env node`.
-Требуется **Node.js 20+** (рекомендуется 22).
-
-Проверь, что сервер запускается молча — он не должен ничего писать в stdout
-(stdout зарезервирован под MCP JSON-RPC):
-
-```bash
 node build/index.js
 ```
 
-Для остановки нажми `Ctrl+C` два раза быстро. Один `Ctrl+C` только отменяет
-активные команды/jobs, чтобы MCP-клиенты могли прервать tool call без убийства
-всего stdio-транспорта. В штатной работе вывода быть не должно.
+Во всех случаях сервер запускается молча и не должен ничего писать в stdout
+(stdout зарезервирован под MCP JSON-RPC). Для остановки нажми `Ctrl+C` два раза
+быстро. Один `Ctrl+C` только отменяет активные команды/jobs, чтобы MCP-клиенты
+могли прервать tool call без убийства всего stdio-транспорта. В штатной работе
+вывода быть не должно.
 
 ### Быстрый старт
 
@@ -476,19 +500,17 @@ node build/index.js
 
 ### Интеграции
 
-Замени `C:\\path\\to\\ssh-chat-mcp\\build\\index.js` на **свой
-абсолютный путь** к `build/index.js` во всех сниппетах ниже.
+Все сниппеты ниже используют форму **npx** (`npx -y ssh-chat-mcp`) — без
+установки и путей. Если ставил из исходников, замени
+`{ "command": "npx", "args": ["-y", "ssh-chat-mcp"] }` на
+`{ "command": "node", "args": ["/abs/path/to/ssh-chat-mcp/build/index.js"] }`.
+На Windows некоторым клиентам npx нужно обернуть как
+`"command": "cmd", "args": ["/c", "npx", "-y", "ssh-chat-mcp"]`.
 
 #### Claude Code (CLI)
 
 ```bash
-claude mcp add ssh-chat --scope user -- cmd /c node C:\path\to\ssh-chat-mcp\build\index.js
-```
-
-macOS / Linux:
-
-```bash
-claude mcp add ssh-chat --scope user -- node /absolute/path/to/ssh-chat-mcp/build/index.js
+claude mcp add ssh-chat --scope user -- npx -y ssh-chat-mcp
 ```
 
 Проверка: `/mcp` внутри Claude Code.
@@ -504,8 +526,8 @@ claude mcp add ssh-chat --scope user -- node /absolute/path/to/ssh-chat-mcp/buil
 {
   "mcpServers": {
     "ssh-chat": {
-      "command": "node",
-      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
+      "command": "npx",
+      "args": ["-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -519,9 +541,9 @@ claude mcp add ssh-chat --scope user -- node /absolute/path/to/ssh-chat-mcp/buil
 
 ```toml
 [mcp_servers.ssh-chat]
-command = 'node'
-args = ['C:\\path\\to\\ssh-chat-mcp\\build\\index.js']
-startup_timeout_sec = 10
+command = 'npx'
+args = ['-y', 'ssh-chat-mcp']
+startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
 ```
@@ -535,10 +557,7 @@ enabled = true
   "mcp": {
     "ssh-chat": {
       "type": "local",
-      "command": [
-        "node",
-        "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"
-      ],
+      "command": ["npx", "-y", "ssh-chat-mcp"],
       "enabled": true,
       "timeout": 120000
     }
@@ -555,7 +574,7 @@ enabled = true
   "mcpServers": {
     "ssh-chat": {
       "command": "cmd",
-      "args": ["/c", "node", "C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
+      "args": ["/c", "npx", "-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -567,8 +586,8 @@ macOS / Linux:
 {
   "mcpServers": {
     "ssh-chat": {
-      "command": "node",
-      "args": ["/absolute/path/to/ssh-chat-mcp/build/index.js"]
+      "command": "npx",
+      "args": ["-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -582,8 +601,8 @@ macOS / Linux:
 {
   "mcpServers": {
     "ssh-chat": {
-      "command": "node",
-      "args": ["C:\\path\\to\\ssh-chat-mcp\\build\\index.js"]
+      "command": "npx",
+      "args": ["-y", "ssh-chat-mcp"]
     }
   }
 }
@@ -596,8 +615,8 @@ macOS / Linux:
 ```json
 {
   "name": "ssh-chat",
-  "command": "node",
-  "args": ["/absolute/path/to/ssh-chat-mcp/build/index.js"],
+  "command": "npx",
+  "args": ["-y", "ssh-chat-mcp"],
   "transport": "stdio"
 }
 ```
@@ -608,8 +627,8 @@ macOS / Linux:
 
 Если клиент вообще поддерживает stdio-серверы, укажи:
 
-- **command:** `node`
-- **args:** `["/abs/path/to/ssh-chat-mcp/build/index.js"]`
+- **command:** `npx`
+- **args:** `["-y", "ssh-chat-mcp"]`
 - **env / cwd:** не нужно
 - **transport:** stdio
 

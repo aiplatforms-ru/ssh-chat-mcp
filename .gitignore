@@ -42,3 +42,6 @@ coverage/
 # Local helper files
 .repo_patch_*.json
 backup/
+
+# npm auth (must never be committed)
+.npmrc
